@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MLB Mobile Matchups</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: black;
+    color: white;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+}
+
+.game {
+    height: 100vh;
+    display: flex;
+    position: relative;
+    scroll-snap-align: start;
+    animation: fadeIn 0.6s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(40px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.team {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+}
+
+.logo {
+    width: 90px;
+    margin-bottom: 10px;
+    animation: pop 0.5s ease;
+}
+
+@keyframes pop {
+    from { transform: scale(0.6); }
+    to { transform: scale(1); }
+}
+
+.team h1 {
+    font-size: 20px;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.game-time {
+    font-size: 13px;
+    opacity: 0.8;
+    margin-bottom: 15px;
+}
+
+.stat {
+    width: 90%;
+    margin: 8px 0;
+}
+
+.label {
+    font-size: 13px;
+    margin-bottom: 3px;
+}
+
+.bar {
+    height: 6px;
+    background: #222;
+    border-radius: 5px;
+}
+
+.fill {
+    height: 100%;
+    background: lime;
+    border-radius: 5px;
+    animation: grow 0.8s ease;
+}
+
+@keyframes grow {
+    from { width: 0; }
+}
+
+.vs {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 42px;
+    font-weight: bold;
+    opacity: 0.9;
+    text-shadow: 0 0 10px white;
+}
+
+.bottom {
+    position: absolute;
+    bottom: 30px;
+    width: 100%;
+    text-align: center;
+}
+
+.win {
+    font-size: 28px;
+    color: gold;
+    text-shadow: 0 0 15px gold;
+}
+
+@media (max-width: 400px) {
+    .team h1 { font-size: 18px; }
+    .vs { font-size: 36px; }
+}
+</style>
+</head>
+
+<body>
+
+<div id="app"></div>
+
+<script>
+const BASE = "https://statsapi.mlb.com/api/v1";
+
+/* TEAM COLORS */
+const teamColors = {
+    121:"#002D72",134:"#FDB827",145:"#0C2340",158:"#12284B",
+    120:"#0C2340",112:"#0E3386",142:"#002B5C",110:"#DF4601",
+    111:"#C6011F",113:"#C6011F",108:"#002D62",117:"#002D62",
+    116:"#0C2C56",135:"#2F241D",139:"#092C5C",138:"#C41E3A",
+    140:"#003278",143:"#E81828",109:"#A71930",119:"#005A9C",
+    114:"#00385D",136:"#0C2C56"
+};
+
+/* FORMAT TIME */
+function formatGameTime(dateStr) {
+    const d = new Date(dateStr);
+
+    const date = d.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric"
+    });
+
+    const time = d.toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit"
+    });
+
+    return `${date} • ${time}`;
+}
+
+/* GET GAMES */
+async function getGames(){
+    const today = new Date().toISOString().split("T")[0];
+    const res = await fetch(`${BASE}/schedule?sportId=1&date=${today}`);
+    const data = await res.json();
+    return data.dates[0]?.games || [];
+}
+
+/* GET STATS */
+async function getStats(id){
+    const res = await fetch(`${BASE}/teams/${id}/stats?stats=season&season=2025&group=hitting`);
+    const data = await res.json();
+
+    try { return data.stats[0].splits[0].stat; }
+    catch { return {runs:700,rbi:650,avg:0.25,hits:1400}; }
+}
+
+/* PREDICT */
+function predict(home, away){
+    let h = home.runs*0.4 + home.rbi*0.3 + home.avg*100*0.2 + home.hits*0.1;
+    let a = away.runs*0.4 + away.rbi*0.3 + away.avg*100*0.2 + away.hits*0.1;
+    h *= 1.05;
+    let t = h+a;
+    return [(h/t)*100,(a/t)*100];
+}
+
+/* CREATE UI */
+function createGame(g, hs, as, hp, ap){
+    const home=g.teams.home.team;
+    const away=g.teams.away.team;
+
+    const hc=teamColors[home.id]||"#111";
+    const ac=teamColors[away.id]||"#111";
+
+    const maxRuns=Math.max(hs.runs,as.runs);
+    const maxHits=Math.max(hs.hits,as.hits);
+    const maxAvg=Math.max(hs.avg,as.avg);
+
+    return `
+    <div class="game">
+
+        <div class="team" style="background:linear-gradient(${hc},black)">
+            <img class="logo" src="https://www.mlbstatic.com/team-logos/${home.id}.svg">
+            <h1>${home.name}</h1>
+            <div class="game-time">${formatGameTime(g.gameDate)}</div>
+
+            <div class="stat">
+                <div class="label">Runs (${hs.runs})</div>
+                <div class="bar"><div class="fill" style="width:${hs.runs/maxRuns*100}%"></div></div>
+            </div>
+
+            <div class="stat">
+                <div class="label">Avg (${hs.avg})</div>
+                <div class="bar"><div class="fill" style="width:${hs.avg/maxAvg*100}%"></div></div>
+            </div>
+
+            <div class="stat">
+                <div class="label">Hits (${hs.hits})</div>
+                <div class="bar"><div class="fill" style="width:${hs.hits/maxHits*100}%"></div></div>
+            </div>
+        </div>
+
+        <div class="team" style="background:linear-gradient(${ac},black)">
+            <img class="logo" src="https://www.mlbstatic.com/team-logos/${away.id}.svg">
+            <h1>${away.name}</h1>
+            <div class="game-time">${formatGameTime(g.gameDate)}</div>
+
+            <div class="stat">
+                <div class="label">Runs (${as.runs})</div>
+                <div class="bar"><div class="fill" style="width:${as.runs/maxRuns*100}%"></div></div>
+            </div>
+
+            <div class="stat">
+                <div class="label">Avg (${as.avg})</div>
+                <div class="bar"><div class="fill" style="width:${as.avg/maxAvg*100}%"></div></div>
+            </div>
+
+            <div class="stat">
+                <div class="label">Hits (${as.hits})</div>
+                <div class="bar"><div class="fill" style="width:${as.hits/maxHits*100}%"></div></div>
+            </div>
+        </div>
+
+        <div class="vs">VS</div>
+
+        <div class="bottom">
+            <div class="win">${hp.toFixed(1)}% - ${ap.toFixed(1)}%</div>
+        </div>
+
+    </div>
+    `;
+}
+
+/* MAIN */
+async function run(){
+    const games=await getGames();
+    const app=document.getElementById("app");
+
+    for(let g of games){
+        const hs=await getStats(g.teams.home.team.id);
+        const as=await getStats(g.teams.away.team.id);
+        const [hp,ap]=predict(hs,as);
+        app.innerHTML+=createGame(g,hs,as,hp,ap);
+    }
+}
+
+run();
+</script>
+
+</body>
+</html>
