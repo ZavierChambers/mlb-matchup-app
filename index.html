@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MLB Mobile Matchups</title>
+<title>MLB Matchups</title>
 
 <style>
 body {
@@ -11,63 +11,86 @@ body {
     font-family: Arial;
     background: black;
     color: white;
-    overflow-y: scroll;
     scroll-snap-type: y mandatory;
+    overflow-y: scroll;
 }
 
+body.loading {
+    opacity: 0;
+}
+
+/* GAME */
 .game {
     height: 100vh;
-    display: flex;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     scroll-snap-align: start;
-    animation: fadeIn 0.6s ease;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(40px); }
-    to { opacity: 1; transform: translateY(0); }
+/* CONTENT */
+.content {
+    display: flex;
+    height: 100%;
 }
 
+/* TEAM */
 .team {
     flex: 1;
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 10px;
+    overflow: hidden;
+    padding: 60px 10px;
 }
 
+/* BG LOGO */
+.bg {
+    position: absolute;
+    width: 70%;
+    height: 70%;
+    top: 15%;
+    left: 15%;
+    object-fit: contain;
+    opacity: 0.35;
+    filter: blur(5px);
+    z-index: 0;
+}
+
+.team * {
+    z-index: 1;
+}
+
+/* LOGO */
 .logo {
-    width: 90px;
+    width: clamp(60px, 8vw, 100px);
     margin-bottom: 10px;
-    animation: pop 0.5s ease;
 }
 
-@keyframes pop {
-    from { transform: scale(0.6); }
-    to { transform: scale(1); }
-}
-
+/* TEXT */
 .team h1 {
-    font-size: 20px;
-    text-align: center;
+    font-size: clamp(14px, 2vw, 20px);
     margin-bottom: 5px;
+    text-align: center;
 }
 
 .game-time {
-    font-size: 13px;
+    font-size: 12px;
     opacity: 0.8;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
+/* STATS */
 .stat {
     width: 90%;
-    margin: 8px 0;
+    margin: 6px 0;
 }
 
 .label {
-    font-size: 13px;
-    margin-bottom: 3px;
+    font-size: 12px;
 }
 
 .bar {
@@ -80,79 +103,74 @@ body {
     height: 100%;
     background: lime;
     border-radius: 5px;
-    animation: grow 0.8s ease;
 }
 
-@keyframes grow {
-    from { width: 0; }
-}
-
+/* 🔥 FLOATING VS */
 .vs {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 42px;
+
+    font-size: clamp(18px, 5vw, 19px);
     font-weight: bold;
-    opacity: 0.9;
-    text-shadow: 0 0 10px white;
+    color: white;
+
+    z-index: 10;
+
+    /* glow + floating feel */
+    text-shadow:
+        0 0 10px white,
+        0 0 20px rgba(255,255,255,0.6);
+
+    background: rgba(0,0,0,0.3);
+    padding: 10px 20px;
+    border-radius: 12px;
+    backdrop-filter: blur(6px);
 }
 
-.bottom {
-    position: absolute;
-    bottom: 30px;
-    width: 100%;
-    text-align: center;
-}
-
+/* WIN % */
 .win {
-    font-size: 28px;
+    position: absolute;
+    bottom: 190px;
+    left: 50%;
+    transform: translateX(-50%);
+
+    font-size: clamp(18px, 3vw, 26px);
     color: gold;
-    text-shadow: 0 0 15px gold;
+    text-shadow: 0 0 10px gold;
+    font-weight: bold;
 }
 
-@media (max-width: 400px) {
-    .team h1 { font-size: 18px; }
-    .vs { font-size: 36px; }
+/* MOBILE FIXES */
+@media (max-width: 600px) {
+    .team {
+        padding: 80px 10px; /* more space so VS doesn't collide */
+    }
+
+    .vs {
+        padding: 8px 14px;
+    }
 }
 </style>
 </head>
 
-<body>
+<body class="loading">
 
 <div id="app"></div>
 
 <script>
 const BASE = "https://statsapi.mlb.com/api/v1";
 
-/* TEAM COLORS */
-const teamColors = {
-    121:"#002D72",134:"#FDB827",145:"#0C2340",158:"#12284B",
-    120:"#0C2340",112:"#0E3386",142:"#002B5C",110:"#DF4601",
-    111:"#C6011F",113:"#C6011F",108:"#002D62",117:"#002D62",
-    116:"#0C2C56",135:"#2F241D",139:"#092C5C",138:"#C41E3A",
-    140:"#003278",143:"#E81828",109:"#A71930",119:"#005A9C",
-    114:"#00385D",136:"#0C2C56"
-};
-
-/* FORMAT TIME */
+/* TIME */
 function formatGameTime(dateStr) {
     const d = new Date(dateStr);
-
-    const date = d.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric"
-    });
-
-    const time = d.toLocaleTimeString(undefined, {
-        hour: "numeric",
-        minute: "2-digit"
-    });
-
-    return `${date} • ${time}`;
+    return d.toLocaleDateString(undefined,{month:"short",day:"numeric"}) +
+           " • " +
+           d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
 }
 
-/* GET GAMES */
+/* FETCH */
 async function getGames(){
     const today = new Date().toISOString().split("T")[0];
     const res = await fetch(`${BASE}/schedule?sportId=1&date=${today}`);
@@ -160,7 +178,6 @@ async function getGames(){
     return data.dates[0]?.games || [];
 }
 
-/* GET STATS */
 async function getStats(id){
     const res = await fetch(`${BASE}/teams/${id}/stats?stats=season&season=2025&group=hitting`);
     const data = await res.json();
@@ -178,13 +195,36 @@ function predict(home, away){
     return [(h/t)*100,(a/t)*100];
 }
 
-/* CREATE UI */
+/* 🎨 COLOR FROM LOGO */
+function getCenterColor(imgUrl, callback) {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+
+    img.onload = function () {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        ctx.drawImage(img, 0, 0);
+
+        const x = Math.floor(img.width * 0.6);
+        const y = Math.floor(img.height * 0.6);
+
+        const pixel = ctx.getImageData(x, y, 1, 1).data;
+        const color = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+
+        callback(color);
+    };
+
+    img.src = imgUrl;
+}
+
+/* UI */
 function createGame(g, hs, as, hp, ap){
     const home=g.teams.home.team;
     const away=g.teams.away.team;
-
-    const hc=teamColors[home.id]||"#111";
-    const ac=teamColors[away.id]||"#111";
 
     const maxRuns=Math.max(hs.runs,as.runs);
     const maxHits=Math.max(hs.hits,as.hits);
@@ -193,53 +233,59 @@ function createGame(g, hs, as, hp, ap){
     return `
     <div class="game">
 
-        <div class="team" style="background:linear-gradient(${hc},black)">
-            <img class="logo" src="https://www.mlbstatic.com/team-logos/${home.id}.svg">
-            <h1>${home.name}</h1>
-            <div class="game-time">${formatGameTime(g.gameDate)}</div>
+        <div class="content">
 
-            <div class="stat">
-                <div class="label">Runs (${hs.runs})</div>
-                <div class="bar"><div class="fill" style="width:${hs.runs/maxRuns*100}%"></div></div>
+            <div class="team">
+                <img class="bg" src="https://www.mlbstatic.com/team-logos/${home.id}.svg">
+                <img class="logo" src="https://www.mlbstatic.com/team-logos/${home.id}.svg">
+                <h1>${home.name}</h1>
+                <div class="game-time">${formatGameTime(g.gameDate)}</div>
+
+                <div class="stat">
+                    <div class="label">Runs (${hs.runs})</div>
+                    <div class="bar"><div class="fill" style="width:${hs.runs/maxRuns*100}%"></div></div>
+                </div>
+
+                <div class="stat">
+                    <div class="label">Avg (${hs.avg})</div>
+                    <div class="bar"><div class="fill" style="width:${hs.avg/maxAvg*100}%"></div></div>
+                </div>
+
+                <div class="stat">
+                    <div class="label">Hits (${hs.hits})</div>
+                    <div class="bar"><div class="fill" style="width:${hs.hits/maxHits*100}%"></div></div>
+                </div>
             </div>
 
-            <div class="stat">
-                <div class="label">Avg (${hs.avg})</div>
-                <div class="bar"><div class="fill" style="width:${hs.avg/maxAvg*100}%"></div></div>
+            <div class="team">
+                <img class="bg" src="https://www.mlbstatic.com/team-logos/${away.id}.svg">
+                <img class="logo" src="https://www.mlbstatic.com/team-logos/${away.id}.svg">
+                <h1>${away.name}</h1>
+                <div class="game-time">${formatGameTime(g.gameDate)}</div>
+
+                <div class="stat">
+                    <div class="label">Runs (${as.runs})</div>
+                    <div class="bar"><div class="fill" style="width:${as.runs/maxRuns*100}%"></div></div>
+                </div>
+
+                <div class="stat">
+                    <div class="label">Avg (${as.avg})</div>
+                    <div class="bar"><div class="fill" style="width:${as.avg/maxAvg*100}%"></div></div>
+                </div>
+
+                <div class="stat">
+                    <div class="label">Hits (${as.hits})</div>
+                    <div class="bar"><div class="fill" style="width:${as.hits/maxHits*100}%"></div></div>
+                </div>
             </div>
 
-            <div class="stat">
-                <div class="label">Hits (${hs.hits})</div>
-                <div class="bar"><div class="fill" style="width:${hs.hits/maxHits*100}%"></div></div>
-            </div>
         </div>
 
-        <div class="team" style="background:linear-gradient(${ac},black)">
-            <img class="logo" src="https://www.mlbstatic.com/team-logos/${away.id}.svg">
-            <h1>${away.name}</h1>
-            <div class="game-time">${formatGameTime(g.gameDate)}</div>
-
-            <div class="stat">
-                <div class="label">Runs (${as.runs})</div>
-                <div class="bar"><div class="fill" style="width:${as.runs/maxRuns*100}%"></div></div>
-            </div>
-
-            <div class="stat">
-                <div class="label">Avg (${as.avg})</div>
-                <div class="bar"><div class="fill" style="width:${as.avg/maxAvg*100}%"></div></div>
-            </div>
-
-            <div class="stat">
-                <div class="label">Hits (${as.hits})</div>
-                <div class="bar"><div class="fill" style="width:${as.hits/maxHits*100}%"></div></div>
-            </div>
-        </div>
-
+        <!-- FLOATING VS -->
         <div class="vs">VS</div>
 
-        <div class="bottom">
-            <div class="win">${hp.toFixed(1)}% - ${ap.toFixed(1)}%</div>
-        </div>
+        <!-- WIN -->
+        <div class="win">${hp.toFixed(1)}% - ${ap.toFixed(1)}%</div>
 
     </div>
     `;
@@ -248,14 +294,27 @@ function createGame(g, hs, as, hp, ap){
 /* MAIN */
 async function run(){
     const games=await getGames();
-    const app=document.getElementById("app");
+    let html="";
 
     for(let g of games){
         const hs=await getStats(g.teams.home.team.id);
         const as=await getStats(g.teams.away.team.id);
         const [hp,ap]=predict(hs,as);
-        app.innerHTML+=createGame(g,hs,as,hp,ap);
+        html+=createGame(g,hs,as,hp,ap);
     }
+
+    document.getElementById("app").innerHTML=html;
+
+    /* APPLY COLORS */
+    document.querySelectorAll(".team").forEach(team => {
+        const img = team.querySelector(".logo");
+
+        getCenterColor(img.src, (color) => {
+            team.style.background = `linear-gradient(${color}, black)`;
+        });
+    });
+
+    document.body.classList.remove("loading");
 }
 
 run();
