@@ -145,11 +145,23 @@ body.loading {
 /* MOBILE FIXES */
 @media (max-width: 600px) {
     .team {
-        padding: 80px 10px; /* more space so VS doesn't collide */
+        padding: 150px 10px; /* more space so VS doesn't collide */
     }
 
     .vs {
-        padding: 8px 14px;
+        padding: 8px 10px;
+    }
+
+    .win {
+      position: absolute;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+
+      font-size: clamp(18px, 3vw, 26px);
+      color: gold;
+      text-shadow: 0 0 10px gold;
+      font-weight: bold;
     }
 }
 </style>
